@@ -166,6 +166,22 @@ interface IPoolV3 {
         address indexed user
     );
 
+    event Mint(
+    address indexed caller,
+    address indexed onBehalfOf,
+    uint256 value,
+    uint256 balanceIncrease,
+    uint256 index
+  );
+
+   event Burn(
+    address indexed from,
+    address indexed target,
+    uint256 value,
+    uint256 balanceIncrease,
+    uint256 index
+  );
+
     /**
      * @dev Emitted on flashLoan()
      * @param target The address of the flash loan receiver contract

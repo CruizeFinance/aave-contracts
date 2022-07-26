@@ -20,23 +20,27 @@ describe("Test Token", function () {
   let weth = "0x4200000000000000000000000000000000000006";
   let usdcHolder = "0xa3f45e619cE3AAe2Fa5f8244439a66B203b78bCc";
 
+  const MAX =  BigNumber.from(
+    "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+  )
+
   before(async () => {
     [signer] = await ethers.getSigners();
     usdcAccount = await Impersonate(usdcHolder);
 
-    const AaveWrapper = await ethers.getContractFactory("AaveWrapper", signer);
-    token = await ethers.getContractAt("IERC20", usdc, signer);
+    const AaveWrapper = await ethers.getContractFactory("AaveWrapper", usdcAccount);
+    token = await ethers.getContractAt("IERC20", usdc, usdcAccount);
     wrapper = await AaveWrapper.deploy();
 
     pool = await ethers.getContractAt(
       "IPoolV3",
       "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
-      signer
+      usdcAccount
     );
     wethGateway = await ethers.getContractAt(
       "IWETHGateway",
       "0x86b4D2636EC473AC4A5dD83Fc2BEDa98845249A7",
-      signer
+      usdcAccount
     );
 
     hre.tracer.nameTags[signer.address] = "ADMIN";
@@ -45,134 +49,162 @@ describe("Test Token", function () {
   });
 
   it.only("ETH Supply", async function () {
-    await wethGateway.depositETH(pool.address, signer.address, "0", {
-      value: parseEther("2"),
-    }); // 2
-    // console.log(await pool.callStatic.getUserAccountData(signer.address))
+
+    // Supply 1 ETH as a collateral so we can borrow usdc
+    await wethGateway.depositETH(pool.address, usdcAccount.address, "0", {
+      value: parseEther("1"),
+    });
 
     const data = await pool.callStatic.getReserveData(weth);
     const aToken = await ethers.getContractAt(
       "IERC20",
       data.aTokenAddress,
-      signer
+      usdcAccount
     );
     const dToken = await ethers.getContractAt(
       "IERC20",
       data.variableDebtTokenAddress,
-      signer
+      usdcAccount
     );
     console.log({
-      usdc: await token.callStatic.balanceOf(signer.address),
-      aWeth: await aToken.callStatic.balanceOf(signer.address),
-      debtWeth: await dToken.callStatic.balanceOf(signer.address),
+      usdc: await token.callStatic.balanceOf(usdcAccount.address),
+      aWeth: await aToken.callStatic.balanceOf(usdcAccount.address),
+      debtWeth: await dToken.callStatic.balanceOf(usdcAccount.address),
     });
   });
 
   it.only("Borrow USDC", async function () {
-    const userData = await pool.callStatic.getUserAccountData(signer.address);
+    const userData = await pool.callStatic.getUserAccountData(usdcAccount.address);
+
+    // Here we are borrowing 20% USDC of the total borrow available(in usd ) against our collateral
     borrowAmount = userData.availableBorrowsBase
       .mul(BigNumber.from("20"))
       .div(BigNumber.from("10000"));
     await pool
-      .connect(signer)
-      .borrow(usdc, borrowAmount, "2", "0", signer.address);
+      .connect(usdcAccount)
+      .borrow(usdc, borrowAmount, "2", "0", usdcAccount.address);
 
-    console.log(await pool.callStatic.getUserAccountData(signer.address));
+    console.log(await pool.callStatic.getUserAccountData(usdcAccount.address));
 
     const wethData = await pool.callStatic.getReserveData(weth);
     const usdcData = await pool.callStatic.getReserveData(usdc);
     const aToken = await ethers.getContractAt(
       "IERC20",
       wethData.aTokenAddress,
-      signer
+      usdcAccount
     );
 
     const aUSDCToken = await ethers.getContractAt(
       "IERC20",
       usdcData.aTokenAddress,
-      signer
+      usdcAccount
+    );
+
+    const dUSDCToken = await ethers.getContractAt(
+      "IERC20",
+      usdcData.variableDebtTokenAddress,
+      usdcAccount
     );
 
     const dToken = await ethers.getContractAt(
       "IERC20",
       wethData.variableDebtTokenAddress,
-      signer
+      usdcAccount
     );
     console.log({
-      usdc: await token.callStatic.balanceOf(signer.address),
-      aUSDC: await aUSDCToken.callStatic.balanceOf(signer.address),
-      aWeth: await aToken.callStatic.balanceOf(signer.address),
-      debtWeth: await dToken.callStatic.balanceOf(signer.address),
+      usdc: await token.callStatic.balanceOf(usdcAccount.address),
+      aUSDC: await aUSDCToken.callStatic.balanceOf(usdcAccount.address),
+      vUSDC: await dUSDCToken.callStatic.balanceOf(usdcAccount.address),
+      aWeth: await aToken.callStatic.balanceOf(usdcAccount.address),
+      debtWeth: await dToken.callStatic.balanceOf(usdcAccount.address),
     });
   });
 
   it.only("Repay USDC", async function () {
+    console.log(await pool.callStatic.getUserAccountData(usdcAccount.address))
+
+    // Approving the USC's to the pool so we can repay the borrowed USDC amount
     await token.approve(
       pool.address,
-      BigNumber.from(
-        "115792089237316195423570985008687907853269984665640564039457584007913129639935"
-      )
+      MAX
     );
       
-    await pool.connect(signer).repay(usdc, borrowAmount, "2",signer.address);
-
     const wethData = await pool.callStatic.getReserveData(weth);
     const usdcData = await pool.callStatic.getReserveData(usdc);
+
+    // Here we passed the MAX amount so that we can repay all debt amount in USDC
+    await pool.connect(usdcAccount).repay(usdc, MAX, "2",usdcAccount.address);
+
     const aToken = await ethers.getContractAt(
       "IERC20",
       wethData.aTokenAddress,
-      signer
+      usdcAccount
     );
 
     const aUSDCToken = await ethers.getContractAt(
       "IERC20",
       usdcData.aTokenAddress,
-      signer
+      usdcAccount
+    );
+
+    const dUSDCToken = await ethers.getContractAt(
+      "IERC20",
+      usdcData.variableDebtTokenAddress,
+      usdcAccount
     );
 
     const dToken = await ethers.getContractAt(
       "IERC20",
       wethData.variableDebtTokenAddress,
-      signer
+      usdcAccount
     );
     console.log({
-      usdc: await token.callStatic.balanceOf(signer.address),
-      aUSDC: await aUSDCToken.callStatic.balanceOf(signer.address),
-      aWeth: await aToken.callStatic.balanceOf(signer.address),
-      debtWeth: await dToken.callStatic.balanceOf(signer.address),
+      usdc: await token.callStatic.balanceOf(usdcAccount.address),
+      aUSDC: await aUSDCToken.callStatic.balanceOf(usdcAccount.address),
+      vUSDC: await dUSDCToken.callStatic.balanceOf(usdcAccount.address),
+      aWeth: await aToken.callStatic.balanceOf(usdcAccount.address),
+      debtWeth: await dToken.callStatic.balanceOf(usdcAccount.address),
     });
+
   });
 
   it.only("Withdraw Eth", async function () {
 
-    console.log(await pool.callStatic.getUserAccountData(signer.address))
-
+    // Here we are pass MAX as a withdrawal amount so that we can withdraw all deposited collateral
+    await pool.withdraw(weth,MAX,usdcAccount.address)
+    
+    console.log(await pool.callStatic.getUserAccountData(usdcAccount.address))
     const wethData = await pool.callStatic.getReserveData(weth);
     const usdcData = await pool.callStatic.getReserveData(usdc);
     const aToken = await ethers.getContractAt(
       "IERC20",
       wethData.aTokenAddress,
-      signer
+      usdcAccount
     );
 
     const aUSDCToken = await ethers.getContractAt(
       "IERC20",
       usdcData.aTokenAddress,
-      signer
+      usdcAccount
+    );
+
+    const dUSDCToken = await ethers.getContractAt(
+      "IERC20",
+      usdcData.variableDebtTokenAddress,
+      usdcAccount
     );
 
     const dToken = await ethers.getContractAt(
       "IERC20",
       wethData.variableDebtTokenAddress,
-      signer
+      usdcAccount
     );
     console.log({
-      usdc: await token.callStatic.balanceOf(signer.address),
-      aUSDC: await aUSDCToken.callStatic.balanceOf(signer.address),
-      aWeth: await aToken.callStatic.balanceOf(signer.address),
-      debtWeth: await dToken.callStatic.balanceOf(signer.address),
+      usdc: await token.callStatic.balanceOf(usdcAccount.address),
+      aUSDC: await aUSDCToken.callStatic.balanceOf(usdcAccount.address),
+      vUSDC: await dUSDCToken.callStatic.balanceOf(usdcAccount.address),
+      aWeth: await aToken.callStatic.balanceOf(usdcAccount.address),
+      debtWeth: await dToken.callStatic.balanceOf(usdcAccount.address),
     });
-
-
   });
 });
