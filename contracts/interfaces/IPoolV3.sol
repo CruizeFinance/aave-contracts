@@ -9,7 +9,7 @@ import {DataTypes} from "@aave/core-v3/contracts/protocol/libraries/types/DataTy
  * @author Aave
  * @notice Defines the basic interface for an Aave Pool.
  **/
-interface IPool {
+interface IPoolV3 {
     /**
      * @dev Emitted on mintUnbacked()
      * @param reserve The address of the underlying asset of the reserve

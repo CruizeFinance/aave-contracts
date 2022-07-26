@@ -16,9 +16,9 @@ describe("Test Token", function () {
 
   let borrowAmount: BigNumber;
 
-  let usdc = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607";
-  let weth = "0x4200000000000000000000000000000000000006";
-  let usdcHolder = "0xa3f45e619cE3AAe2Fa5f8244439a66B203b78bCc";
+  let usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48";
+  let weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+  let usdcHolder = "0x72A53cDBBcc1b9efa39c834A540550e23463AAcB";
 
   before(async () => {
     [signer] = await ethers.getSigners();
@@ -29,13 +29,13 @@ describe("Test Token", function () {
     wrapper = await AaveWrapper.deploy();
 
     pool = await ethers.getContractAt(
-      "IPool",
-      "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+      "IPoolV2",
+      "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
       signer
     );
     wethGateway = await ethers.getContractAt(
       "IWETHGateway",
-      "0x86b4D2636EC473AC4A5dD83Fc2BEDa98845249A7",
+      "0xcc9a0B7c43DC2a5F023Bb9b738E45B0Ef6B06E04",
       signer
     );
 
@@ -44,7 +44,7 @@ describe("Test Token", function () {
     hre.tracer.nameTags[usdcAccount.address] = "USDC-HOLDER";
   });
 
-  it.only("ETH Supply", async function () {
+  it("ETH Supply", async function () {
     await wethGateway.depositETH(pool.address, signer.address, "0", {
       value: parseEther("2"),
     }); // 2
@@ -71,7 +71,7 @@ describe("Test Token", function () {
     });
   });
 
-  it.only("Borrow USDC", async function () {
+  it("Borrow USDC", async function () {
     const userData = await pool.callStatic.getUserAccountData(signer.address);
     borrowAmount = userData.availableBorrowsBase
       .mul(BigNumber.from("20"))
@@ -109,7 +109,7 @@ describe("Test Token", function () {
     });
   });
 
-  it.only("Repay USDC", async function () {
+  it("Repay USDC", async function () {
     await token.approve(
       pool.address,
       BigNumber.from(
@@ -146,7 +146,7 @@ describe("Test Token", function () {
     });
   });
 
-  it.only("Withdraw Eth", async function () {
+  it("Withdraw Eth", async function () {
 
     console.log(await pool.callStatic.getUserAccountData(signer.address))
 

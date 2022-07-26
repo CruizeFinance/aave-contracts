@@ -1,6 +1,6 @@
 pragma solidity 0.8.10;
 
-import "./interfaces/IPool.sol";
+import "./interfaces/IPoolV3.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IPoolAddressesProvider.sol";
 import "hardhat/console.sol";
@@ -9,8 +9,8 @@ import "./PercentageMath.sol";
 contract AaveWrapper {
     using PercentageMath for uint256;
 
-    IPool public constant POOL =
-        IPool(address(0x794a61358D6845594F94dc1DB02A252b5b4814aD));
+    IPoolV3 public constant POOL =
+        IPoolV3(address(0x794a61358D6845594F94dc1DB02A252b5b4814aD));
 
     IPoolAddressesProvider public constant POOL_ADDRESS_PROVIDER =
         IPoolAddressesProvider(
